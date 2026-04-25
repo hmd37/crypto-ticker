@@ -3,6 +3,20 @@ import asyncio
 import websockets
 
 from manager import ConnectionManager
+from database import async_session, PriceTick
+
+
+async def save_tick(data: dict):
+    async with async_session() as session:
+        tick = PriceTick(
+            symbol=data["symbol"],
+            price=data["price"],
+            change=data["change"],
+            high=data["high"],
+            low=data["low"],
+        )
+        session.add(tick)
+        await session.commit()
 
 
 async def binance_feed(manager: ConnectionManager):
@@ -27,7 +41,8 @@ async def binance_feed(manager: ConnectionManager):
 
                     manager.latest_prices[price_data["symbol"].lower()] = price_data
                     await manager.broadcast(price_data)
+                    await save_tick(price_data)              # save every tick
 
         except Exception as e:
             print(f"Binance connection lost: {e}. Reconnecting in 3s...")
-            await asyncio.sleep(3)   # wait before retrying
+            await asyncio.sleep(3)
