@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Ticker</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Syne:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: #0e0e0e;
+      color: #f0f0f0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 2rem;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f0f0;
+      letter-spacing: -0.5px;
+    }
+
+    .status-label {
+      font-size: 12px;
+      color: #888;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1D9E75;
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .coin-card {
+      background: #1a1a1a;
+      border: 0.5px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 1.25rem;
+      transition: border-color 0.2s;
+    }
+
+    .coin-card:hover {
+      border-color: #3a3a3a;
+    }
+
+    .flash-up { animation: flashUp 0.4s ease-out; }
+    .flash-down { animation: flashDown 0.4s ease-out; }
+
+    @keyframes flashUp {
+      0% { background: #0f2e22; }
+      100% { background: #1a1a1a; }
+    }
+
+    @keyframes flashDown {
+      0% { background: #2e1510; }
+      100% { background: #1a1a1a; }
+    }
+
+    .coin-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .coin-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f0f0f0;
+      letter-spacing: 0.5px;
+    }
+
+    .coin-badge {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .badge-up   { background: #0f2e22; color: #5DCAA5; }
+    .badge-down { background: #2e1510; color: #F0997B; }
+
+    .coin-price {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 500;
+      color: #f0f0f0;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.75rem;
+    }
+
+    .coin-meta {
+      display: flex;
+      justify-content: space-between;
+      border-top: 0.5px solid #2a2a2a;
+      padding-top: 0.75rem;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .meta-label {
+      font-size: 10px;
+      color: #555;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .meta-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #888;
+      font-weight: 500;
+    }
+
+    .last-update {
+      margin-top: 1.5rem;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #444;
+      text-align: right;
+    }
+
+    .connecting {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 0;
+      gap: 1rem;
+      color: #555;
+      font-size: 14px;
+      grid-column: 1 / -1;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #2a2a2a;
+      border-top-color: #1D9E75;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>crypto ticker</h1>
+    <div class="status-label">
+      <span class="status-dot" id="dot"></span>
+      <span id="status-text">connecting...</span>
+    </div>
+  </div>
+
+  <div id="grid" class="grid">
+    <div class="connecting">
+      <div class="spinner"></div>
+      <span>waiting for server...</span>
+    </div>
+  </div>
+
+  <div class="last-update" id="last-update"></div>
+
+  <script>
+    const COINS = {
+      BTCUSDT:  { name: 'BTC' },
+      ETHUSDT:  { name: 'ETH' },
+      BNBUSDT:  { name: 'BNB' },
+      SOLUSDT:  { name: 'SOL' },
+      XRPUSDT:  { name: 'XRP' },
+      DOGEUSDT: { name: 'DOGE' },
+    };
+
+    const prices = {};
+
+    function formatPrice(price, symbol) {
+      if (symbol === 'DOGEUSDT' || symbol === 'XRPUSDT') {
+        return '$' + price.toFixed(4);
+      }
+      if (price > 1000) {
+        return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      return '$' + price.toFixed(2);
+    }
+
+    function renderCard(data) {
+      const symbol = data.symbol;
+      const coin   = COINS[symbol] || { name: symbol };
+      const up     = data.change >= 0;
+
+      return `
+        <div class="coin-card" id="card-${symbol}">
+          <div class="coin-header">
+            <span class="coin-name">${coin.name}</span>
+            <span class="coin-badge ${up ? 'badge-up' : 'badge-down'}">
+              ${up ? '+' : ''}${data.change.toFixed(2)}%
+            </span>
+          </div>
+          <div class="coin-price">${formatPrice(data.price, symbol)}</div>
+          <div class="coin-meta">
+            <div class="meta-item">
+              <span class="meta-label">24h high</span>
+              <span class="meta-value">${formatPrice(data.high, symbol)}</span>
+            </div>
+            <div class="meta-item" style="text-align:right">
+              <span class="meta-label">24h low</span>
+              <span class="meta-value">${formatPrice(data.low, symbol)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function flashCard(symbol, direction) {
+      const card = document.getElementById('card-' + symbol);
+      if (!card) return;
+      card.classList.remove('flash-up', 'flash-down');
+      void card.offsetWidth; // force reflow so animation restarts
+      card.classList.add(direction === 'up' ? 'flash-up' : 'flash-down');
+    }
+
+    function updateCard(data) {
+      const symbol    = data.symbol;
+      const previous  = prices[symbol];
+      const direction = previous ? (data.price >= previous.price ? 'up' : 'down') : 'up';
+
+      prices[symbol] = data;
+
+      const card = document.getElementById('card-' + symbol);
+      if (card) {
+        card.outerHTML = renderCard(data);
+        flashCard(symbol, direction);
+      }
+    }
+
+    function renderSnapshot(data) {
+      const order = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT'];
+      let html = '';
+      for (const sym of order) {
+        const key = sym.toLowerCase();
+        if (data[key]) {
+          prices[sym] = data[key];
+          html += renderCard(data[key]);
+        }
+      }
+      document.getElementById('grid').innerHTML = html;
+    }
+
+    function updateStatus(connected) {
+      document.getElementById('dot').style.background  = connected ? '#1D9E75' : '#D85A30';
+      document.getElementById('status-text').textContent = connected ? 'live' : 'reconnecting...';
+    }
+
+    function connect() {
+      const ws = new WebSocket('ws://localhost:8000/ws');
+
+      ws.onopen = () => updateStatus(true);
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === 'snapshot') {
+          renderSnapshot(msg.data);
+        } else if (msg.type === 'tick') {
+          updateCard(msg.data);
+          document.getElementById('last-update').textContent =
+            'last tick: ' + new Date().toLocaleTimeString();
+        }
+      };
+
+      ws.onclose = () => {
+        updateStatus(false);
+        setTimeout(connect, 3000); // retry every 3s — mirrors feed.py reconnection
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+  </script>
+</body>
+</html>
