@@ -25,15 +25,23 @@ async def bulk_insert(ticks: list[dict]):
 
 
 async def db_worker():
-    """Consumer — runs forever, drains the queue in batches"""
     while True:
         batch = []
 
-        first = await tick_queue.get()      # wait for at least one tick
+        # wait for first item
+        first = await tick_queue.get()
         batch.append(first)
 
-        while not tick_queue.empty() and len(batch) < 100:
-            batch.append(tick_queue.get_nowait())
+        # now wait up to 2 seconds collecting more
+        try:
+            while len(batch) < 100:
+                item = await asyncio.wait_for(
+                    tick_queue.get(),
+                    timeout=2.0        # wait max 2 seconds for next item
+                )
+                batch.append(item)
+        except asyncio.TimeoutError:
+            pass                       # 2 seconds passed, insert whatever we have
 
         await bulk_insert(batch)
         print(f"saved batch of {len(batch)} ticks")
