@@ -1,9 +1,8 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
-from sqlalchemy import Float, String, DateTime
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import DateTime, Float, String
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
-
 
 engine = create_async_engine("postgresql+asyncpg://ahmad:12345@localhost/crypto-ticker")
 
@@ -23,7 +22,9 @@ class PriceTick(Base):
     change: Mapped[float] = mapped_column(Float)
     high: Mapped[float] = mapped_column(Float)
     low: Mapped[float] = mapped_column(Float)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
 
 async def create_tables():

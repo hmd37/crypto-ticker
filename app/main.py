@@ -6,27 +6,32 @@ from fastapi.responses import HTMLResponse
 from fastapi.websockets import WebSocketDisconnect
 from sqlalchemy import select, desc
 
-from database import async_session, PriceTick, create_tables
+from alerts import Alert, watch_alert
+from database import PriceTick, async_session, create_tables
 from feed import binance_feed, db_worker
 from manager import ConnectionManager
 
 manager = ConnectionManager()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_tables()
-    feed_task   = asyncio.create_task(binance_feed(manager))
-    worker_task = asyncio.create_task(db_worker())       # new
+    feed_task = asyncio.create_task(binance_feed(manager))
+    worker_task = asyncio.create_task(db_worker())  # new
     yield
     feed_task.cancel()
-    worker_task.cancel()                                  # new
+    worker_task.cancel()  # new
+
 
 app = FastAPI(lifespan=lifespan)
+
 
 @app.get("/")
 async def index():
     with open("index.html") as f:
         return HTMLResponse(f.read())
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
@@ -36,6 +41,7 @@ async def websocket_endpoint(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(ws)
+
 
 @app.get("/history/{symbol}")
 async def get_history(symbol: str, limit: int = 50):
@@ -58,3 +64,25 @@ async def get_history(symbol: str, limit: int = 50):
             }
             for t in ticks
         ]
+
+
+@app.websocket("/ws/alerts")
+async def alert_endpoint(ws: WebSocket):
+    await ws.accept()
+
+    try:
+        # wait for client to send alert config
+        data = await ws.receive_json()
+
+        alert = Alert(
+            symbol=data["symbol"].upper() + "USDT",
+            target_price=float(data["target_price"]),
+            direction=data["direction"],
+            ws=ws,
+        )
+
+        # start watching — this blocks until alert triggers or client disconnects
+        await watch_alert(alert, manager)
+
+    except WebSocketDisconnect:
+        pass  # client left, watcher will die naturally on next send attempt
