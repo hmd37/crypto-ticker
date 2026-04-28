@@ -7,6 +7,7 @@ from fastapi.websockets import WebSocketDisconnect
 from sqlalchemy import select, desc
 
 from alerts import Alert, watch_alert
+from cleanup import cleanup_worker
 from database import PriceTick, async_session, create_tables
 from feed import binance_feed, db_worker
 from manager import ConnectionManager
@@ -18,10 +19,12 @@ manager = ConnectionManager()
 async def lifespan(app: FastAPI):
     await create_tables()
     feed_task = asyncio.create_task(binance_feed(manager))
-    worker_task = asyncio.create_task(db_worker())  # new
+    worker_task = asyncio.create_task(db_worker()) 
+    cleanup_task = asyncio.create_task(cleanup_worker())
     yield
     feed_task.cancel()
-    worker_task.cancel()  # new
+    worker_task.cancel()  
+    cleanup_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
