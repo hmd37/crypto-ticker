@@ -5,10 +5,17 @@ from sqlalchemy import delete
 from database import async_session, PriceTick
 
 
-async def delete_old_ticks():
-    cutoff = datetime.now(UTC) - timedelta(hours=1)
+async def delete_old_ticks(session=None):
+    cutoff = datetime.now(UTC) - timedelta(days=7)
 
-    async with async_session() as session:
+    if session is None:
+        async with async_session() as s:
+            result = await s.execute(
+                delete(PriceTick).where(PriceTick.timestamp < cutoff)
+            )
+            await s.commit()
+            print(f"cleanup: deleted {result.rowcount} old ticks")
+    else:
         result = await session.execute(
             delete(PriceTick).where(PriceTick.timestamp < cutoff)
         )
