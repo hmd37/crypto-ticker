@@ -69,6 +69,7 @@ async def binance_feed(manager: ConnectionManager):
                         "change": float(data["P"]),
                         "high": float(data["h"]),
                         "low": float(data["l"]),
+                        "volume": float(data["q"]),
                     }
 
                     manager.latest_prices[price_data["symbol"].lower()] = price_data

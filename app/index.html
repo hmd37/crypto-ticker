@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crypto Ticker</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Syne:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Syne', sans-serif;
-      background: #0e0e0e;
+      background: #0a0a0a;
       color: #f0f0f0;
       min-height: 100vh;
       padding: 2rem;
@@ -18,302 +19,554 @@
 
     .header {
       display: flex;
-      align-items: baseline;
-      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 2rem;
     }
 
     .header h1 {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
-      color: #f0f0f0;
       letter-spacing: -0.5px;
     }
 
-    .status-label {
-      font-size: 12px;
-      color: #888;
-      font-family: 'JetBrains Mono', monospace;
+    .status {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #555;
     }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
+    .dot {
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: #1D9E75;
-      display: inline-block;
       animation: pulse 2s infinite;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 2rem;
     }
 
     .coin-card {
-      background: #1a1a1a;
-      border: 0.5px solid #2a2a2a;
+      background: #141414;
+      border: 0.5px solid #222;
       border-radius: 12px;
-      padding: 1.25rem;
-      transition: border-color 0.2s;
+      padding: 1rem 1.1rem;
+      cursor: pointer;
+      transition: border-color 0.15s;
     }
 
-    .coin-card:hover {
-      border-color: #3a3a3a;
-    }
+    .coin-card:hover { border-color: #333; }
+    .coin-card.active { border-color: #1D9E75; }
 
-    .flash-up { animation: flashUp 0.4s ease-out; }
-    .flash-down { animation: flashDown 0.4s ease-out; }
+    .flash-up { animation: fup 0.35s ease-out; }
+    .flash-down { animation: fdn 0.35s ease-out; }
+    @keyframes fup { 0%{background:#0f2e22} 100%{background:#141414} }
+    @keyframes fdn { 0%{background:#2e1510} 100%{background:#141414} }
 
-    @keyframes flashUp {
-      0% { background: #0f2e22; }
-      100% { background: #1a1a1a; }
-    }
-
-    @keyframes flashDown {
-      0% { background: #2e1510; }
-      100% { background: #1a1a1a; }
-    }
-
-    .coin-header {
+    .card-top {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      margin-bottom: 1rem;
+      align-items: center;
+      margin-bottom: 0.6rem;
     }
 
-    .coin-name {
-      font-size: 13px;
+    .coin-sym {
+      font-size: 12px;
       font-weight: 700;
-      color: #f0f0f0;
       letter-spacing: 0.5px;
     }
 
-    .coin-badge {
-      font-size: 11px;
+    .badge {
       font-family: 'JetBrains Mono', monospace;
-      padding: 3px 8px;
+      font-size: 10px;
+      padding: 2px 6px;
       border-radius: 4px;
-      font-weight: 500;
     }
 
-    .badge-up   { background: #0f2e22; color: #5DCAA5; }
-    .badge-down { background: #2e1510; color: #F0997B; }
+    .up   { background: #0f2e22; color: #5DCAA5; }
+    .down { background: #2e1510; color: #F0997B; }
 
     .coin-price {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 20px;
+      font-size: 17px;
       font-weight: 500;
-      color: #f0f0f0;
       letter-spacing: -0.5px;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
     }
 
-    .coin-meta {
+    .card-meta {
       display: flex;
       justify-content: space-between;
-      border-top: 0.5px solid #2a2a2a;
-      padding-top: 0.75rem;
+      border-top: 0.5px solid #1e1e1e;
+      padding-top: 0.5rem;
     }
 
-    .meta-item {
+    .meta-label { font-size: 9px; color: #444; text-transform: uppercase; letter-spacing: 0.5px; }
+    .meta-val   { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #666; margin-top: 2px; }
+
+    .detail {
+      background: #141414;
+      border: 0.5px solid #222;
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      display: none;
+    }
+
+    .detail.visible { display: block; }
+
+    .detail-header {
       display: flex;
-      flex-direction: column;
-      gap: 3px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
     }
 
-    .meta-label {
-      font-size: 10px;
-      color: #555;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+    .detail-name {
+      font-size: 18px;
+      font-weight: 700;
     }
 
-    .meta-value {
+    .detail-price {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: #888;
+      font-size: 28px;
       font-weight: 500;
+      letter-spacing: -1px;
     }
 
-    .last-update {
-      margin-top: 1.5rem;
-      font-size: 11px;
+    .detail-change {
       font-family: 'JetBrains Mono', monospace;
-      color: #444;
-      text-align: right;
+      font-size: 13px;
+      margin-left: 10px;
     }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-box {
+      background: #0e0e0e;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+
+    .stat-label { font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-val   { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #aaa; margin-top: 4px; }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 220px;
+    }
+
+    .chart-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 0.5px solid #222;
+      background: transparent;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab.active { border-color: #1D9E75; color: #1D9E75; background: #0f2e22; }
 
     .connecting {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 4rem 0;
+      padding: 4rem;
       gap: 1rem;
-      color: #555;
-      font-size: 14px;
+      color: #333;
+      font-size: 13px;
       grid-column: 1 / -1;
     }
 
     .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid #2a2a2a;
+      width: 22px; height: 22px;
+      border: 1.5px solid #1e1e1e;
       border-top-color: #1D9E75;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .last-tick {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #333;
+      text-align: right;
+      margin-top: 1rem;
     }
+
+    .close-btn {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #444;
+      background: none;
+      border: 0.5px solid #222;
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+
+    .close-btn:hover { color: #888; border-color: #333; }
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <h1>crypto ticker</h1>
-    <div class="status-label">
-      <span class="status-dot" id="dot"></span>
-      <span id="status-text">connecting...</span>
+<div class="header">
+  <h1>crypto ticker</h1>
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="status-text">connecting...</span>
+  </div>
+</div>
+
+<div id="grid" class="grid">
+  <div class="connecting">
+    <div class="spinner"></div>
+    <span>waiting for server...</span>
+  </div>
+</div>
+
+<div class="detail" id="detail">
+  <div class="detail-header">
+    <div>
+      <div class="detail-name" id="d-name"></div>
+      <div style="display:flex;align-items:baseline;margin-top:4px">
+        <div class="detail-price" id="d-price"></div>
+        <div class="detail-change" id="d-change"></div>
+      </div>
     </div>
+    <button class="close-btn" onclick="closeDetail()">close</button>
   </div>
 
-  <div id="grid" class="grid">
-    <div class="connecting">
-      <div class="spinner"></div>
-      <span>waiting for server...</span>
-    </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-label">24h high</div><div class="stat-val" id="d-high"></div></div>
+    <div class="stat-box"><div class="stat-label">24h low</div><div class="stat-val" id="d-low"></div></div>
+    <div class="stat-box"><div class="stat-label">volume</div><div class="stat-val" id="d-vol"></div></div>
+    <div class="stat-box"><div class="stat-label">data points</div><div class="stat-val" id="d-points"></div></div>
   </div>
 
-  <div class="last-update" id="last-update"></div>
+  <div class="chart-tabs">
+    <button class="tab active" onclick="setRange('1h', this)">1h</button>
+    <button class="tab" onclick="setRange('4h', this)">4h</button>
+    <button class="tab" onclick="setRange('12h', this)">12h</button>
+    <button class="tab" onclick="setRange('24h', this)">24h</button>
+  </div>
 
-  <script>
-    const COINS = {
-      BTCUSDT:  { name: 'BTC' },
-      ETHUSDT:  { name: 'ETH' },
-      BNBUSDT:  { name: 'BNB' },
-      SOLUSDT:  { name: 'SOL' },
-      XRPUSDT:  { name: 'XRP' },
-      DOGEUSDT: { name: 'DOGE' },
-    };
+  <div class="chart-wrap">
+    <canvas id="price-chart" role="img" aria-label="Price history chart for selected cryptocurrency"></canvas>
+  </div>
+</div>
 
-    const prices = {};
+<div class="last-tick" id="last-tick"></div>
 
-    function formatPrice(price, symbol) {
-      if (symbol === 'DOGEUSDT' || symbol === 'XRPUSDT') {
-        return '$' + price.toFixed(4);
-      }
-      if (price > 1000) {
-        return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      }
-      return '$' + price.toFixed(2);
-    }
+<script>
+const COINS = {
+  BTCUSDT:  'BTC',
+  ETHUSDT:  'ETH',
+  BNBUSDT:  'BNB',
+  SOLUSDT:  'SOL',
+  XRPUSDT:  'XRP',
+  DOGEUSDT: 'DOGE',
+};
 
-    function renderCard(data) {
-      const symbol = data.symbol;
-      const coin   = COINS[symbol] || { name: symbol };
-      const up     = data.change >= 0;
+const ORDER = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','DOGEUSDT'];
 
-      return `
-        <div class="coin-card" id="card-${symbol}">
-          <div class="coin-header">
-            <span class="coin-name">${coin.name}</span>
-            <span class="coin-badge ${up ? 'badge-up' : 'badge-down'}">
-              ${up ? '+' : ''}${data.change.toFixed(2)}%
-            </span>
-          </div>
-          <div class="coin-price">${formatPrice(data.price, symbol)}</div>
-          <div class="coin-meta">
-            <div class="meta-item">
-              <span class="meta-label">24h high</span>
-              <span class="meta-value">${formatPrice(data.high, symbol)}</span>
-            </div>
-            <div class="meta-item" style="text-align:right">
-              <span class="meta-label">24h low</span>
-              <span class="meta-value">${formatPrice(data.low, symbol)}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
+const prices  = {};
+const history = {};
+ORDER.forEach(s => history[s] = []);
 
-    function flashCard(symbol, direction) {
-      const card = document.getElementById('card-' + symbol);
-      if (!card) return;
-      card.classList.remove('flash-up', 'flash-down');
-      void card.offsetWidth; // force reflow so animation restarts
-      card.classList.add(direction === 'up' ? 'flash-up' : 'flash-down');
-    }
+let activeSymbol = null;
+let chart = null;
+let currentRange = '1h';
 
-    function updateCard(data) {
-      const symbol    = data.symbol;
-      const previous  = prices[symbol];
-      const direction = previous ? (data.price >= previous.price ? 'up' : 'down') : 'up';
+function fmt(price, sym) {
+  if (sym === 'DOGEUSDT' || sym === 'XRPUSDT') return '$' + price.toFixed(4);
+  if (price >= 1000) return '$' + price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return '$' + price.toFixed(2);
+}
 
-      prices[symbol] = data;
+function fmtVol(v) {
+  if (v >= 1e9) return (v/1e9).toFixed(1)+'B';
+  if (v >= 1e6) return (v/1e6).toFixed(1)+'M';
+  if (v >= 1e3) return (v/1e3).toFixed(1)+'K';
+  return v.toFixed(0);
+}
 
-      const card = document.getElementById('card-' + symbol);
-      if (card) {
-        card.outerHTML = renderCard(data);
-        flashCard(symbol, direction);
-      }
-    }
+function fmtTime(ts) {
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
 
-    function renderSnapshot(data) {
-      const order = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT'];
-      let html = '';
-      for (const sym of order) {
-        const key = sym.toLowerCase();
-        if (data[key]) {
-          prices[sym] = data[key];
-          html += renderCard(data[key]);
+function filterHistory(sym, range) {
+  const ms = { '1h': 3600000, '4h': 14400000, '12h': 43200000, '24h': 86400000 };
+  const cutoff = Date.now() - (ms[range] || 3600000);
+  return (history[sym] || []).filter(p => p.ts >= cutoff);
+}
+
+function renderCard(data) {
+  const sym  = data.symbol;
+  const name = COINS[sym] || sym;
+  const up   = data.change >= 0;
+  const isActive = activeSymbol === sym;
+
+  return `
+    <div class="coin-card ${isActive ? 'active' : ''}" id="card-${sym}" onclick="openDetail('${sym}')">
+      <div class="card-top">
+        <span class="coin-sym">${name}</span>
+        <span class="badge ${up ? 'up' : 'down'}">${up?'+':''}${data.change.toFixed(2)}%</span>
+      </div>
+      <div class="coin-price">${fmt(data.price, sym)}</div>
+      <div class="card-meta">
+        <div><div class="meta-label">high</div><div class="meta-val">${fmt(data.high, sym)}</div></div>
+        <div style="text-align:right"><div class="meta-label">low</div><div class="meta-val">${fmt(data.low, sym)}</div></div>
+      </div>
+    </div>`;
+}
+
+function flashCard(sym, dir) {
+  const el = document.getElementById('card-' + sym);
+  if (!el) return;
+  el.classList.remove('flash-up','flash-down');
+  void el.offsetWidth;
+  el.classList.add(dir === 'up' ? 'flash-up' : 'flash-down');
+}
+
+function renderGrid() {
+  document.getElementById('grid').innerHTML = ORDER
+    .filter(s => prices[s])
+    .map(s => renderCard(prices[s]))
+    .join('');
+}
+
+function updateCard(data) {
+  const sym  = data.symbol;
+  const prev = prices[sym];
+  const dir  = prev ? (data.price >= prev.price ? 'up' : 'down') : 'up';
+
+  prices[sym] = data;
+  history[sym].push({ ts: Date.now(), price: data.price });
+
+  const cutoff = Date.now() - 86400000;
+  history[sym] = history[sym].filter(p => p.ts >= cutoff);
+
+  const card = document.getElementById('card-' + sym);
+  if (card) {
+    card.outerHTML = renderCard(data);
+    flashCard(sym, dir);
+  }
+
+  if (activeSymbol === sym) updateDetail(data);
+  document.getElementById('last-tick').textContent = 'last tick: ' + new Date().toLocaleTimeString();
+}
+
+function openDetail(sym) {
+  activeSymbol = sym;
+  renderGrid();
+  const detail = document.getElementById('detail');
+  detail.classList.add('visible');
+  updateDetail(prices[sym]);
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeDetail() {
+  activeSymbol = null;
+  renderGrid();
+  document.getElementById('detail').classList.remove('visible');
+  if (chart) { chart.destroy(); chart = null; }
+}
+
+function setRange(range, btn) {
+  currentRange = range;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if (activeSymbol) drawChart(activeSymbol);
+}
+
+function updateDetail(data) {
+  if (!data) return;
+  const sym = data.symbol;
+  const up  = data.change >= 0;
+  document.getElementById('d-name').textContent  = COINS[sym] || sym;
+  document.getElementById('d-price').textContent = fmt(data.price, sym);
+  document.getElementById('d-high').textContent  = fmt(data.high, sym);
+  document.getElementById('d-low').textContent   = fmt(data.low, sym);
+  document.getElementById('d-vol').textContent   = data.volume ? fmtVol(data.volume) : '—';
+  const ch = document.getElementById('d-change');
+  ch.textContent = (up?'+':'') + data.change.toFixed(2) + '%';
+  ch.style.color = up ? '#5DCAA5' : '#F0997B';
+  const pts = filterHistory(sym, currentRange);
+  document.getElementById('d-points').textContent = pts.length;
+  updateChart(sym);
+}
+
+function updateChart(sym) {
+  const pts = filterHistory(sym, currentRange);
+  if (pts.length < 2) return;
+
+  const values = pts.map(p => p.price);
+  const labels = pts.map(p => fmtTime(p.ts));
+  const step   = Math.max(1, Math.floor(labels.length / 6));
+  const sparseLabels = labels.map((l, i) => i % step === 0 ? l : '');
+
+  if (!chart) {
+    drawChart(sym);   // first time, do a full draw
+    return;
+  }
+
+  // update existing chart in place — no flicker
+  chart.data.labels             = sparseLabels;
+  chart.data.datasets[0].data  = values;
+  chart.update(50);   // 'none' = skip animation, instant update
+}
+
+function drawChart(sym) {
+  const pts = filterHistory(sym, currentRange);
+  if (chart) { chart.destroy(); chart = null; }
+  if (pts.length < 2) return;
+
+  const labels = pts.map(p => fmtTime(p.ts));
+  const values = pts.map(p => p.price);
+  const first  = values[0];
+  const last   = values[values.length - 1];
+  const color  = last >= first ? '#1D9E75' : '#D85A30';
+  const fill   = last >= first ? 'rgba(29,158,117,0.08)' : 'rgba(216,90,48,0.08)';
+
+  const step = Math.max(1, Math.floor(labels.length / 6));
+  const sparseLabels = labels.map((l, i) => i % step === 0 ? l : '');
+
+  chart = new Chart(document.getElementById('price-chart'), {
+    type: 'line',
+    data: {
+      labels: sparseLabels,
+      datasets: [{
+        data: values,
+        borderColor: color,
+        borderWidth: 1.5,
+        backgroundColor: fill,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: color,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          borderColor: '#2a2a2a',
+          borderWidth: 1,
+          titleColor: '#555',
+          bodyColor: '#f0f0f0',
+          titleFont: { family: 'JetBrains Mono', size: 11 },
+          bodyFont: { family: 'JetBrains Mono', size: 13 },
+          callbacks: {
+            title: ctx => labels[ctx[0].dataIndex],
+            label: ctx => fmt(ctx.parsed.y, sym),
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#1a1a1a' },
+          ticks: { color: '#444', font: { family: 'JetBrains Mono', size: 10 }, maxRotation: 0 },
+          border: { color: '#1e1e1e' }
+        },
+        y: {
+          position: 'right',
+          grid: { color: '#1a1a1a' },
+          ticks: {
+            color: '#444',
+            font: { family: 'JetBrains Mono', size: 10 },
+            callback: v => fmt(v, sym)
+          },
+          border: { color: '#1e1e1e' }
         }
       }
-      document.getElementById('grid').innerHTML = html;
     }
+  });
+}
 
-    function updateStatus(connected) {
-      document.getElementById('dot').style.background  = connected ? '#1D9E75' : '#D85A30';
-      document.getElementById('status-text').textContent = connected ? 'live' : 'reconnecting...';
+function renderSnapshot(data) {
+  ORDER.forEach(sym => {
+    const key = sym.toLowerCase();
+    if (data[key]) {
+      prices[sym] = data[key];
+      history[sym].push({ ts: Date.now(), price: data[key].price });
     }
+  });
+  renderGrid();
+}
 
-    function connect() {
-      const ws = new WebSocket('ws://localhost:8000/ws');
+function loadHistory(sym) {
+  fetch(`/history/${sym.replace('USDT','').toLowerCase()}?limit=500`)
+    .then(r => r.json())
+    .then(rows => {
+      const loaded = rows
+        .map(r => ({ ts: new Date(r.timestamp).getTime(), price: r.price }))
+        .sort((a, b) => a.ts - b.ts);
+      history[sym] = loaded;
+      if (activeSymbol === sym) {
+        drawChart(sym);
+        const el = document.getElementById('d-points');
+        if (el) el.textContent = filterHistory(sym, currentRange).length;
+      }
+    })
+    .catch(() => {});
+}
 
-      ws.onopen = () => updateStatus(true);
+function setStatus(connected) {
+  document.getElementById('dot').style.background    = connected ? '#1D9E75' : '#D85A30';
+  document.getElementById('status-text').textContent = connected ? 'live' : 'reconnecting...';
+}
 
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-
-        if (msg.type === 'snapshot') {
-          renderSnapshot(msg.data);
-        } else if (msg.type === 'tick') {
-          updateCard(msg.data);
-          document.getElementById('last-update').textContent =
-            'last tick: ' + new Date().toLocaleTimeString();
-        }
-      };
-
-      ws.onclose = () => {
-        updateStatus(false);
-        setTimeout(connect, 3000); // retry every 3s — mirrors feed.py reconnection
-      };
-
-      ws.onerror = () => ws.close();
+function connect() {
+  const ws = new WebSocket('ws://localhost:8000/ws');
+  ws.onopen = () => setStatus(true);
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'snapshot') {
+      renderSnapshot(msg.data);
+      ORDER.forEach(sym => loadHistory(sym));
+    } else if (msg.type === 'tick') {
+      updateCard(msg.data);
     }
+  };
+  ws.onclose = () => { setStatus(false); setTimeout(connect, 3000); };
+  ws.onerror = () => ws.close();
+}
 
-    connect();
-  </script>
+connect();
+</script>
 </body>
 </html>
