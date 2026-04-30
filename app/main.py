@@ -32,7 +32,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def index():
-    with open("index.html") as f:
+    with open("docs/index.html") as f:
         return HTMLResponse(f.read())
 
 
