@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse
 from fastapi.websockets import WebSocketDisconnect
 from sqlalchemy import select, desc
@@ -28,6 +28,33 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+import time
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("ticker")
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+
+    response = await call_next(request)
+
+    duration = (time.perf_counter() - start) * 1000
+    response.headers["X-Response-Time"] = f"{duration:.1f}ms"
+
+    logger.info(
+        f"{request.method} {request.url.path} "
+        f"→ {response.status_code} "
+        f"({duration:.1f}ms)"
+    )
+
+    return response
 
 
 @app.get("/")
