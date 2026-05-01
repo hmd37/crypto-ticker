@@ -25,7 +25,7 @@ async def delete_old_ticks(session=None):
 
 async def cleanup_worker():
     while True:
-        await asyncio.sleep(3600)   
+        await asyncio.sleep(60)   
         try:
             await delete_old_ticks()
         except Exception as e:

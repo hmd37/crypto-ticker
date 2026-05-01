@@ -36,14 +36,24 @@ async def index():
         return HTMLResponse(f.read())
 
 
+MAX_CONNECTIONS = 1
+connection_sem  = asyncio.Semaphore(MAX_CONNECTIONS)
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
-    await manager.connect(ws)
-    try:
-        while True:
-            await ws.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(ws)
+    if connection_sem.locked():
+        await ws.accept()
+        await ws.send_json({"type": "error", "message": "server full"})
+        await ws.close()
+        return
+
+    async with connection_sem:
+        await manager.connect(ws)
+        try:
+            while True:
+                await ws.receive_text()
+        except WebSocketDisconnect:
+            manager.disconnect(ws)
 
 
 @app.get("/history/{symbol}")
