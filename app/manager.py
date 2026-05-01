@@ -4,16 +4,13 @@ from fastapi import WebSocket
 class ConnectionManager:
     def __init__(self):
         self.clients = set()
-        self.latest_prices = {}   # snapshot storage
+        self.latest_prices = {}  # snapshot storage
 
     async def connect(self, ws: WebSocket):
         await ws.accept()
         self.clients.add(ws)
-        if self.latest_prices:                              # only if we have data
-            await ws.send_json({
-                "type": "snapshot",
-                "data": self.latest_prices
-            })
+        if self.latest_prices:  # only if we have data
+            await ws.send_json({"type": "snapshot", "data": self.latest_prices})
 
     def disconnect(self, ws: WebSocket):
         self.clients.discard(ws)

@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import websockets
+
 from alerts import price_events
 from database import PriceTick, async_session
 from manager import ConnectionManager

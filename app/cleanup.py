@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta, UTC
+
 from sqlalchemy import delete
 
 from database import async_session, PriceTick
